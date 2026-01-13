@@ -2,8 +2,7 @@ services:
   - type: web
     name: all-in-one-tools-backend
     runtime: docker
-    dockerfilePath: ./Dockerfile
-    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
     envVars:
       - key: JWT_SECRET
         generateValue: true

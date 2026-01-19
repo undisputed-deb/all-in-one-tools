@@ -23,10 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -39,24 +36,38 @@ public class PdfServiceImpl implements PdfService {
 
     @Override
     public File mergePdfs(List<MultipartFile> files) {
+        List<PDDocument> documentsToClose = new ArrayList<>();
         try {
-            PDDocument mergedDoc = new PDDocument();
+            PDDocument mergedDocument = new PDDocument();
 
+            // Load each PDF and import all its pages into the merged document
             for (MultipartFile file : files) {
-                PDDocument doc = Loader.loadPDF(file.getBytes());
-                for (PDPage page : doc.getPages()) {
-                    mergedDoc.addPage(page);
+                PDDocument sourceDoc = Loader.loadPDF(file.getBytes());
+                documentsToClose.add(sourceDoc);
+
+                for (int i = 0; i < sourceDoc.getNumberOfPages(); i++) {
+                    mergedDocument.importPage(sourceDoc.getPage(i));
                 }
-                doc.close();
             }
 
             File outputFile = new File(TEMP_DIR + "merged_" + UUID.randomUUID() + ".pdf");
-            mergedDoc.save(outputFile);
-            mergedDoc.close();
+            mergedDocument.save(outputFile);
+            mergedDocument.close();
+
+            // Close all source documents after saving
+            for (PDDocument doc : documentsToClose) {
+                doc.close();
+            }
 
             logger.info("PDFs merged successfully");
             return outputFile;
         } catch (IOException e) {
+            // Clean up on error
+            for (PDDocument doc : documentsToClose) {
+                try {
+                    doc.close();
+                } catch (IOException ignored) {}
+            }
             throw new ProcessingException("Failed to merge PDFs", e);
         }
     }

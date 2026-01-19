@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Image, Upload, Download, Merge, Scissors, Minimize2, Lock, Hash, FileImage, File, RotateCw, Crop } from 'lucide-react'
+import { FileText, Image, Upload, Download, Merge, Scissors, Minimize2, Lock, Hash, FileImage, File, RotateCw, Crop, Video, Type, ImagePlus, Gauge } from 'lucide-react'
 import { Button } from './components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './components/ui/card'
 import { Input } from './components/ui/input'
-import { authAPI, pdfAPI, imageAPI, downloadFile } from './services/api'
+import { authAPI, pdfAPI, imageAPI, videoAPI, downloadFile } from './services/api'
 import BalloonBackground from './components/ui/balloons-pop-background'
 import './App.css'
 
@@ -13,7 +13,7 @@ function App() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [processing, setProcessing] = useState(false)
   const [message, setMessage] = useState('')
-  const [activeTab, setActiveTab] = useState<'pdf' | 'image'>('pdf')
+  const [activeTab, setActiveTab] = useState<'pdf' | 'image' | 'video'>('pdf')
 
   // Parameters for various operations
   const [width, setWidth] = useState('800')
@@ -27,6 +27,15 @@ function App() {
   const [cropWidth, setCropWidth] = useState('400')
   const [cropHeight, setCropHeight] = useState('300')
   const [convertFormat, setConvertFormat] = useState('png')
+
+  // Video parameters
+  const [videoText, setVideoText] = useState('')
+  const [textPosition, setTextPosition] = useState('bottom-left')
+  const [fontSize, setFontSize] = useState('24')
+  const [textColor, setTextColor] = useState('white')
+  const [imagePosition, setImagePosition] = useState('top-left')
+  const [videoSpeed, setVideoSpeed] = useState('1.0')
+  const [overlayImage, setOverlayImage] = useState<File | null>(null)
 
   const handleLogout = () => {
     authAPI.logout()
@@ -310,6 +319,87 @@ function App() {
     }
   }
 
+  // Video Handlers
+  const handleVideoAddText = async () => {
+    if (selectedFiles.length === 0) {
+      setMessage('Please select a video file')
+      return
+    }
+    if (!videoText) {
+      setMessage('Please enter text to add')
+      return
+    }
+    setProcessing(true)
+    try {
+      const response = await videoAPI.addText(selectedFiles[0], videoText, textPosition, parseInt(fontSize), textColor)
+      const data = response.data
+      await downloadFile(data.downloadUrl, data.filename)
+      setMessage(`Text added to video successfully!`)
+    } catch (error: any) {
+      setMessage(`Error: ${error.response?.data?.message || 'Failed to add text to video'}`)
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const handleVideoAddImage = async () => {
+    if (selectedFiles.length === 0) {
+      setMessage('Please select a video file')
+      return
+    }
+    if (!overlayImage) {
+      setMessage('Please select an overlay image')
+      return
+    }
+    setProcessing(true)
+    try {
+      const response = await videoAPI.addImage(selectedFiles[0], overlayImage, imagePosition)
+      const data = response.data
+      await downloadFile(data.downloadUrl, data.filename)
+      setMessage(`Image overlay added to video successfully!`)
+    } catch (error: any) {
+      setMessage(`Error: ${error.response?.data?.message || 'Failed to add image to video'}`)
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const handleVideoChangeSpeed = async () => {
+    if (selectedFiles.length === 0) {
+      setMessage('Please select a video file')
+      return
+    }
+    setProcessing(true)
+    try {
+      const response = await videoAPI.changeSpeed(selectedFiles[0], parseFloat(videoSpeed))
+      const data = response.data
+      await downloadFile(data.downloadUrl, data.filename)
+      setMessage(`Video speed changed to ${videoSpeed}x!`)
+    } catch (error: any) {
+      setMessage(`Error: ${error.response?.data?.message || 'Failed to change video speed'}`)
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  const handleVideoMerge = async () => {
+    if (selectedFiles.length < 2) {
+      setMessage('Please select at least 2 video files to merge')
+      return
+    }
+    setProcessing(true)
+    try {
+      const response = await videoAPI.merge(selectedFiles)
+      const data = response.data
+      await downloadFile(data.downloadUrl, data.filename)
+      setMessage(`Videos merged successfully!`)
+    } catch (error: any) {
+      setMessage(`Error: ${error.response?.data?.message || 'Failed to merge videos'}`)
+    } finally {
+      setProcessing(false)
+    }
+  }
+
   return (
     <div className="min-h-screen relative">
       {/* Balloon Background */}
@@ -334,18 +424,28 @@ function App() {
               <CardDescription>Select PDF or image files to process</CardDescription>
             </CardHeader>
             <CardContent>
-              <Input
-                type="file"
-                onChange={handleFileChange}
-                accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls"
-                multiple
-              />
+              <div className="space-y-3">
+                <input
+                  type="file"
+                  onChange={handleFileChange}
+                  accept=".pdf,.jpg,.jpeg,.png,.xlsx,.xls,.mp4,.mov,.avi,.mkv,.webm"
+                  multiple
+                  className="w-full text-sm text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600 file:cursor-pointer cursor-pointer"
+                />
+                <p className="text-xs text-white/50">Hold Ctrl/Cmd to select multiple files</p>
+              </div>
               {selectedFiles.length > 0 && (
-                <div className="mt-2 text-sm text-white/80">
-                  <p className="font-semibold">Selected {selectedFiles.length} file(s):</p>
-                  {selectedFiles.map((file, idx) => (
-                    <p key={idx}>• {file.name} ({(file.size / 1024).toFixed(2)} KB)</p>
-                  ))}
+                <div className="mt-4 p-3 bg-white/5 rounded-lg border border-white/10">
+                  <p className="font-semibold text-green-400 mb-2">
+                    ✓ {selectedFiles.length} file(s) selected:
+                  </p>
+                  <div className="space-y-1">
+                    {selectedFiles.map((file, idx) => (
+                      <p key={idx} className="text-sm text-white/80">
+                        {idx + 1}. {file.name} <span className="text-white/50">({(file.size / 1024).toFixed(2)} KB)</span>
+                      </p>
+                    ))}
+                  </div>
                 </div>
               )}
             </CardContent>
@@ -388,6 +488,14 @@ function App() {
           >
             <Image className="h-4 w-4" />
             Image Tools
+          </Button>
+          <Button
+            onClick={() => setActiveTab('video')}
+            variant={activeTab === 'video' ? 'default' : 'outline'}
+            className="flex items-center gap-2"
+          >
+            <Video className="h-4 w-4" />
+            Video Tools
           </Button>
         </div>
 
@@ -746,6 +854,155 @@ function App() {
                   className="w-full"
                 >
                   Compress
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Video Tools */}
+        {activeTab === 'video' && (
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Add Text to Video */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Type className="h-5 w-5 text-blue-600" />
+                  <CardTitle className="text-lg">Add Text to Video</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Input
+                  type="text"
+                  placeholder="Enter text"
+                  value={videoText}
+                  onChange={(e) => setVideoText(e.target.value)}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    className="p-2 border border-white/20 bg-white/5 text-white rounded-md text-sm"
+                    value={textPosition}
+                    onChange={(e) => setTextPosition(e.target.value)}
+                  >
+                    <option value="top-left" className="bg-zinc-900">Top Left</option>
+                    <option value="top-right" className="bg-zinc-900">Top Right</option>
+                    <option value="bottom-left" className="bg-zinc-900">Bottom Left</option>
+                    <option value="bottom-right" className="bg-zinc-900">Bottom Right</option>
+                    <option value="center" className="bg-zinc-900">Center</option>
+                  </select>
+                  <Input
+                    type="number"
+                    placeholder="Font size"
+                    value={fontSize}
+                    onChange={(e) => setFontSize(e.target.value)}
+                    min="10"
+                    max="100"
+                  />
+                </div>
+                <select
+                  className="w-full p-2 border border-white/20 bg-white/5 text-white rounded-md text-sm"
+                  value={textColor}
+                  onChange={(e) => setTextColor(e.target.value)}
+                >
+                  <option value="white" className="bg-zinc-900">White</option>
+                  <option value="black" className="bg-zinc-900">Black</option>
+                  <option value="red" className="bg-zinc-900">Red</option>
+                  <option value="yellow" className="bg-zinc-900">Yellow</option>
+                  <option value="green" className="bg-zinc-900">Green</option>
+                  <option value="blue" className="bg-zinc-900">Blue</option>
+                </select>
+                <Button
+                  onClick={handleVideoAddText}
+                  disabled={selectedFiles.length === 0 || processing}
+                  className="w-full"
+                >
+                  Add Text
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Add Image to Video */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <ImagePlus className="h-5 w-5 text-green-600" />
+                  <CardTitle className="text-lg">Add Image to Video</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-xs text-white/60">Select video above, then choose overlay image:</p>
+                <input
+                  type="file"
+                  accept=".png,.jpg,.jpeg"
+                  onChange={(e) => setOverlayImage(e.target.files?.[0] || null)}
+                  className="w-full text-sm text-white file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-green-500 file:text-white"
+                />
+                <select
+                  className="w-full p-2 border border-white/20 bg-white/5 text-white rounded-md text-sm"
+                  value={imagePosition}
+                  onChange={(e) => setImagePosition(e.target.value)}
+                >
+                  <option value="top-left" className="bg-zinc-900">Top Left</option>
+                  <option value="top-right" className="bg-zinc-900">Top Right</option>
+                  <option value="bottom-left" className="bg-zinc-900">Bottom Left</option>
+                  <option value="bottom-right" className="bg-zinc-900">Bottom Right</option>
+                  <option value="center" className="bg-zinc-900">Center</option>
+                </select>
+                <Button
+                  onClick={handleVideoAddImage}
+                  disabled={selectedFiles.length === 0 || !overlayImage || processing}
+                  className="w-full"
+                >
+                  Add Image Overlay
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Change Video Speed */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Gauge className="h-5 w-5 text-orange-600" />
+                  <CardTitle className="text-lg">Change Video Speed</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Input
+                  type="number"
+                  placeholder="Speed (0.5 = slow, 2.0 = fast)"
+                  value={videoSpeed}
+                  onChange={(e) => setVideoSpeed(e.target.value)}
+                  min="0.25"
+                  max="4.0"
+                  step="0.25"
+                />
+                <p className="text-xs text-white/60">0.5 = half speed, 1.0 = normal, 2.0 = double speed</p>
+                <Button
+                  onClick={handleVideoChangeSpeed}
+                  disabled={selectedFiles.length === 0 || processing}
+                  className="w-full"
+                >
+                  Change Speed
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Merge Videos */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Merge className="h-5 w-5 text-purple-600" />
+                  <CardTitle className="text-lg">Merge Videos</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-xs text-white/60">Select 2+ video files to merge into one</p>
+                <Button
+                  onClick={handleVideoMerge}
+                  disabled={selectedFiles.length < 2 || processing}
+                  className="w-full"
+                >
+                  Merge Videos
                 </Button>
               </CardContent>
             </Card>

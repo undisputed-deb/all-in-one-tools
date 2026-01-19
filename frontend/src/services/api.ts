@@ -155,6 +155,45 @@ export const imageAPI = {
   },
 };
 
+// Video API
+export const videoAPI = {
+  addText: async (video: File, text: string, position: string = 'bottom-left', fontSize: number = 24, color: string = 'white') => {
+    const formData = new FormData();
+    formData.append('video', video);
+    formData.append('text', text);
+    formData.append('position', position);
+    formData.append('fontSize', fontSize.toString());
+    formData.append('color', color);
+    return await api.post('/api/video/add-text', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  addImage: async (video: File, image: File, position: string = 'top-left') => {
+    const formData = new FormData();
+    formData.append('video', video);
+    formData.append('image', image);
+    formData.append('position', position);
+    return await api.post('/api/video/add-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  changeSpeed: async (video: File, speed: number) => {
+    const formData = new FormData();
+    formData.append('video', video);
+    formData.append('speed', speed.toString());
+    return await api.post('/api/video/change-speed', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  merge: async (videos: File[]) => {
+    const formData = new FormData();
+    videos.forEach((video) => formData.append('videos', video));
+    return await api.post('/api/video/merge', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+};
+
 // Download helper
 export const downloadFile = async (url: string, filename: string) => {
   const response = await api.get(url, {

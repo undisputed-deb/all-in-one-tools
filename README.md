@@ -1,6 +1,6 @@
 # Document & Image Processing Service
 
-yo this is a full-stack app for processing documents, images, and videos. built with spring boot backend and react frontend. pretty straightforward stuff.
+This is a full-stack app for processing documents, images, and videos. built with spring boot backend and react frontend. pretty straightforward stuff.
 
 ## what it does
 
